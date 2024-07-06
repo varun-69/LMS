@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Spana",
-  description: "...",
+  title: "LMS | Varun",
+  description: "Leave management system for Dreambus.",
 };
 
 export default function RootLayout({
