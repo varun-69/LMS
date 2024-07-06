@@ -1,7 +1,7 @@
 Tech-Stack
 The app was built using the following technologies:
 
-Next.js as the React framework
+Next.js as the React framework<br>
 Prisma as the ORM for migrations and database access
 PostgreSQL: database for local testing
 Next-Auth/Authjs: for authentication
