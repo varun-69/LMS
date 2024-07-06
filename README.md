@@ -1,4 +1,4 @@
-# Spana: Leave Management App
+# LMS: Leave Management App 
 
 ### Usage
 - Users can submit leave requests
@@ -8,11 +8,8 @@
 - Admins can add settings and edit balances
 
 ### Author 
-- Prince De Mawo 
+- Varun
 
-<img src="/spanaOG.png" alt="project-Img" />
-
-## <a href="https://youtu.be/F_d3TviPLOk?si=ACY13MBcpQEbg1wb"> Video Tutorial </a>
 
 ### Tech-Stack
 The app was built using the following technologies:
@@ -25,10 +22,6 @@ The app was built using the following technologies:
 - TailwindCSS: Styling
 - shadcn/ui for UI components
 
-
-
-#### Clone the repo
-`https://github.com/de-mawo/spana-yt.git `
 
 Install packages
 `yarn `
