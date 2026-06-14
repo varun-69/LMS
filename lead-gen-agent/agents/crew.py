@@ -33,16 +33,18 @@ class LeadGenCrew:
         regions: list[str],
         niches: list[str],
         skip_enrichment: bool = False,
+        skip_scoring: bool = False,
         skip_outreach: bool = False,
     ) -> None:
         self.regions = regions
         self.niches = niches
         self.skip_enrichment = skip_enrichment
+        self.skip_scoring = skip_scoring
         self.skip_outreach = skip_outreach
 
         self._enricher = EnricherAgent()
-        self._scorer = ScorerAgent()
-        self._outreach = OutreachAgent()
+        self._scorer = ScorerAgent() if not skip_scoring else None
+        self._outreach = OutreachAgent() if not skip_outreach else None
 
     # ── Public API ────────────────────────────────────────────────────────────
 
@@ -82,10 +84,11 @@ class LeadGenCrew:
             raw_leads = self._enricher.run(raw_leads)
 
         # 3. Scorer
-        scored_leads = self._scorer.run(raw_leads)
+        if not self.skip_scoring and self._scorer:
+            raw_leads = self._scorer.run(raw_leads)
 
         # 4. Outreach
-        if not self.skip_outreach:
-            scored_leads = self._outreach.run(scored_leads)
+        if not self.skip_outreach and self._outreach:
+            raw_leads = self._outreach.run(raw_leads)
 
-        return scored_leads
+        return raw_leads

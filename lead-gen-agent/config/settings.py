@@ -8,8 +8,8 @@ from typing import Optional
 
 
 class Settings(BaseSettings):
-    # ── Required ──────────────────────────────────────────────────
-    ANTHROPIC_API_KEY: str
+    # ── Required for scoring/outreach; optional for scrape-only mode ─
+    ANTHROPIC_API_KEY: str = ""
 
     # ── LLM ───────────────────────────────────────────────────────
     MODEL: str = "claude-sonnet-4-6"

@@ -62,6 +62,11 @@ def parse_args() -> argparse.Namespace:
         help="Skip website visit / enrichment step (faster, less data).",
     )
     parser.add_argument(
+        "--skip-scoring",
+        action="store_true",
+        help="Skip Claude AI scoring step (no API key needed).",
+    )
+    parser.add_argument(
         "--skip-outreach",
         action="store_true",
         help="Skip outreach email generation step (saves API quota).",
@@ -133,6 +138,7 @@ def main() -> None:
             regions=regions,
             niches=niches,
             skip_enrichment=args.skip_enrichment,
+            skip_scoring=args.skip_scoring,
             skip_outreach=args.skip_outreach,
         )
         leads = crew.run()
