@@ -34,3 +34,11 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+lead-gen-agent/outputs/*.csv
+lead-gen-agent/outputs/*.json
+lead-gen-agent/.env
