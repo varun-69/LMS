@@ -90,42 +90,52 @@ class ExportManager:
         cols = [
             ("Tier", "cyan", 5),
             ("Score", "magenta", 6),
-            ("Name", "white", 30),
+            ("Name", "white", 28),
             ("City", "green", 16),
-            ("Country", "green", 12),
-            ("Industry", "yellow", 20),
-            ("Service", "blue", 22),
-            ("Budget/mo (USD)", "red", 16),
-            ("Source", "dim", 12),
-            ("Website", "dim", 30),
+            ("Niche", "yellow", 18),
+            ("Signal", "blue", 16),
+            ("Has Web?", "red", 9),
+            ("Phone", "green", 16),
+            ("Service", "blue", 20),
+            ("Source", "dim", 20),
         ]
 
         for name, style, width in cols:
             table.add_column(name, style=style, max_width=width, no_wrap=False)
 
         for lead in leads:
+            has_web = lead.get("has_website")
+            has_web_str = "[red]No[/red]" if has_web is False else ("[green]Yes[/green]" if has_web else "-")
+            signal = str(lead.get("intent_signal") or lead.get("lead_type") or "-")[:16]
             table.add_row(
                 str(lead.get("tier", "-")),
                 str(lead.get("score", "-")),
-                str(lead.get("name", "-"))[:30],
+                str(lead.get("name", "-"))[:28],
                 str(lead.get("city", "-"))[:16],
-                str(lead.get("country", "-"))[:12],
-                str(lead.get("industry", "-"))[:20],
-                str(lead.get("recommended_service", "-"))[:22],
-                str(lead.get("estimated_budget_usd_monthly") or "-"),
-                str(lead.get("source", "-"))[:12],
-                str(lead.get("website", "-"))[:30],
+                str(lead.get("niche") or lead.get("industry") or "-")[:18],
+                signal,
+                has_web_str,
+                str(lead.get("phone") or "-")[:16],
+                str(lead.get("recommended_service", "-"))[:20],
+                str(lead.get("source", "-"))[:20],
             )
 
         console.print(table)
 
-        # Tier breakdown
+        # Summary stats
         tier_a = sum(1 for l in leads if l.get("tier") == "A")
         tier_b = sum(1 for l in leads if l.get("tier") == "B")
         tier_c = sum(1 for l in leads if l.get("tier") == "C")
+        no_web = sum(1 for l in leads if l.get("has_website") is False)
+        reddit = sum(1 for l in leads if l.get("intent_signal") == "reddit_post")
         console.print(
             f"\n[bold]Tier breakdown:[/bold] "
             f"[cyan]A: {tier_a}[/cyan] | "
             f"[yellow]B: {tier_b}[/yellow] | "
             f"[dim]C: {tier_c}[/dim]"
+        )
+        console.print(
+            f"[bold]Signal breakdown:[/bold] "
+            f"[blue]No-website (OSM): {no_web}[/blue] | "
+            f"[magenta]Reddit intent posts: {reddit}[/magenta]"
         )

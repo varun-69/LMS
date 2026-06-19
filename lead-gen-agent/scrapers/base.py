@@ -7,6 +7,7 @@ import logging
 import random
 import time
 from abc import ABC, abstractmethod
+from datetime import datetime, timezone
 from typing import Any
 
 import requests
@@ -18,20 +19,41 @@ logger = logging.getLogger(__name__)
 
 # Canonical lead schema — every scraper must return dicts conforming to this.
 LEAD_SCHEMA_KEYS = [
+    # ── Identity ──────────────────────────────────────────────────────────
     "name",
-    "website",
-    "email",
-    "phone",
-    "address",
+    "niche",
     "city",
     "country",
-    "industry",
+    # ── Contact ───────────────────────────────────────────────────────────
+    "phone",
+    "email",
+    "website",
+    "address",
+    # ── Web presence status ───────────────────────────────────────────────
+    "has_website",       # bool — False = primary target
+    "lead_type",         # "no_website" | "intent_post" | "directory"
+    # ── Intent signals ────────────────────────────────────────────────────
+    "intent_signal",     # "osm_no_website" | "reddit_post" | "yelp_no_website"
+    "intent_text",       # Evidence: post body, listing description, etc.
+    "intent_url",        # URL to the evidence source
+    # ── Metadata ──────────────────────────────────────────────────────────
     "source",
-    "employees_estimate",
-    "description",
-    "social_links",
+    "scraped_at",
     "rating",
     "review_count",
+    "industry",
+    "description",
+    "social_links",
+    # ── AI scored (added by ScorerAgent) ─────────────────────────────────
+    "score",
+    "tier",
+    "reasoning",
+    "estimated_budget_usd_monthly",
+    "recommended_service",
+    "pain_points_identified",
+    "outreach_hook",
+    # ── Outreach (added by OutreachAgent) ─────────────────────────────────
+    "outreach_email",
 ]
 
 _ua = UserAgent()
@@ -41,18 +63,18 @@ def empty_lead() -> dict[str, Any]:
     """Return an empty lead dict with all schema keys set to None / []."""
     lead: dict[str, Any] = {k: None for k in LEAD_SCHEMA_KEYS}
     lead["social_links"] = []
+    lead["pain_points_identified"] = []
+    lead["scraped_at"] = datetime.now(timezone.utc).isoformat()
     return lead
 
 
 class BaseScraper(ABC):
-    """
-    Abstract scraper.  Subclasses implement `scrape()` and `_parse_lead()`.
-    """
+    """Abstract scraper. Subclasses implement `scrape()` and `_parse_lead()`."""
 
     source_name: str = "base"
 
-    def __init__(self, region: str, niche: str) -> None:
-        self.region = region
+    def __init__(self, location: str, niche: str) -> None:
+        self.location = location
         self.niche = niche
         self.session = requests.Session()
         self.session.headers.update(self._get_headers())
@@ -97,22 +119,12 @@ class BaseScraper(ABC):
                     time.sleep(2 ** attempt)
         return None
 
-    def _normalise(self, raw: dict[str, Any]) -> dict[str, Any]:
-        """Merge raw dict onto an empty lead dict so all keys are present."""
-        lead = empty_lead()
-        lead.update({k: v for k, v in raw.items() if k in LEAD_SCHEMA_KEYS})
-        lead["source"] = self.source_name
-        return lead
-
     # ── Interface ─────────────────────────────────────────────────────────────
 
     @abstractmethod
     def scrape(self) -> list[dict[str, Any]]:
-        """
-        Run the scraper and return a list of normalised lead dicts.
-        Must call self._normalise() on every lead before returning.
-        """
+        """Run the scraper and return a list of normalised lead dicts."""
 
     @abstractmethod
-    def _parse_lead(self, raw: Any) -> dict[str, Any]:
-        """Parse a single raw item (tag, dict, etc.) into a raw lead dict."""
+    def _parse_lead(self, raw: Any) -> dict[str, Any] | None:
+        """Parse a single raw item into a lead dict (return None to skip)."""
