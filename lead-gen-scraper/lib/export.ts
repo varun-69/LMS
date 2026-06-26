@@ -19,6 +19,24 @@ function toRow(b: Business) {
   };
 }
 
+/** Export leads as a CSV file (opens in Sheets / Excel / any CRM importer). */
+export function exportToCsv(leads: Business[], filename = "leads.csv") {
+  const rows = leads.map(toRow);
+  if (rows.length === 0) return;
+  const headers = Object.keys(rows[0]);
+  const escape = (v: unknown) => {
+    const s = String(v ?? "");
+    return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+  };
+  const csv = [
+    headers.join(","),
+    ...rows.map((r) => headers.map((h) => escape((r as Record<string, unknown>)[h])).join(",")),
+  ].join("\r\n");
+  // Prepend a BOM so Excel reads UTF-8 (₹, accents, emoji) correctly.
+  const blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8" });
+  triggerDownload(blob, filename);
+}
+
 export function exportToExcel(leads: Business[], filename = "leads.xlsx") {
   const ws = XLSX.utils.json_to_sheet(leads.map(toRow));
   ws["!cols"] = [

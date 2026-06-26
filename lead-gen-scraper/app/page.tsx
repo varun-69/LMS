@@ -2,7 +2,7 @@
 
 import { useMemo, useRef, useState } from "react";
 import type { Business, StreamEvent } from "@/lib/types";
-import { bestWhatsAppNumber, exportToExcel, exportToVcf } from "@/lib/export";
+import { bestWhatsAppNumber, exportToCsv, exportToExcel, exportToVcf } from "@/lib/export";
 import LeadsTable from "@/components/LeadsTable";
 import IntentRadar from "@/components/IntentRadar";
 import DraftDialog, { type DraftTarget } from "@/components/DraftDialog";
@@ -238,6 +238,13 @@ export default function Home() {
               className="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-40"
             >
               ⬇ Export Excel ({filtered.length})
+            </button>
+            <button
+              onClick={() => exportToCsv(filtered, `leads-${slug || "export"}.csv`)}
+              disabled={filtered.length === 0}
+              className="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-40"
+            >
+              ⬇ Export CSV
             </button>
             <button
               onClick={() => {
