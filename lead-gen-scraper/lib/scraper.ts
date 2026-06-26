@@ -67,7 +67,7 @@ async function collectPlaceLinks(page: Page, limit: number, onStatus: OnStatus):
 }
 
 /** Extract the structured fields from an open Google Maps place panel. */
-async function extractDetail(page: Page): Promise<Omit<Business, "id" | "mapsUrl" | "emails" | "whatsapp" | "sitePhones">> {
+async function extractDetail(page: Page): Promise<Omit<Business, "id" | "mapsUrl" | "niche" | "emails" | "whatsapp" | "sitePhones">> {
   await page.waitForSelector("h1", { timeout: 15000 }).catch(() => {});
   return page.evaluate(() => {
     const txt = (sel: string) => document.querySelector(sel)?.textContent?.trim() || "";
@@ -126,11 +126,12 @@ export async function scrapeGoogleMaps(
   onStatus: OnStatus = () => {},
   signal?: AbortSignal,
 ): Promise<number> {
-  const { niche, location, limit, enrich } = params;
-  const query = `${niche} in ${location}`.trim();
+  const { niches, location, limit, enrich } = params;
 
   let browser: Browser | null = null;
   let count = 0;
+  // Dedupe across niches — the same business can match several searches.
+  const seenIds = new Set<string>();
 
   try {
     onStatus("Launching headless browser…");
@@ -149,61 +150,67 @@ export async function scrapeGoogleMaps(
     });
     const page = await context.newPage();
 
-    onStatus(`Searching Google Maps for "${query}"…`);
-    await page.goto(`${MAPS_SEARCH}${encodeURIComponent(query)}?hl=en`, {
-      waitUntil: "domcontentloaded",
-      timeout: 45000,
-    });
-    await acceptConsent(page);
-
-    // Wait for the results feed. If a single result loaded straight to a place
-    // panel, fall back to scraping just that one.
-    const hasFeed = await page
-      .locator('div[role="feed"]')
-      .waitFor({ timeout: 20000 })
-      .then(() => true)
-      .catch(() => false);
-
-    let placeUrls: string[];
-    if (hasFeed) {
-      placeUrls = await collectPlaceLinks(page, limit, onStatus);
-    } else {
-      placeUrls = [page.url()];
-    }
-
-    onStatus(`Opening ${placeUrls.length} listings to extract details…`);
-
-    for (const url of placeUrls) {
+    for (const niche of niches) {
       if (signal?.aborted) break;
-      try {
-        await page.goto(url, { waitUntil: "domcontentloaded", timeout: 30000 });
-        const detail = await extractDetail(page);
-        if (!detail.name) continue;
+      const query = `${niche} in ${location}`.trim();
 
-        const business: Business = {
-          id: placeIdFromUrl(url),
-          mapsUrl: url,
-          ...detail,
-          emails: [],
-          whatsapp: [],
-          sitePhones: [],
-        };
+      onStatus(`Searching Google Maps for "${query}"…`);
+      await page.goto(`${MAPS_SEARCH}${encodeURIComponent(query)}?hl=en`, {
+        waitUntil: "domcontentloaded",
+        timeout: 45000,
+      });
+      await acceptConsent(page);
 
-        if (enrich && business.website) {
-          onStatus(`Enriching ${business.name}…`);
-          const e = await enrichFromWebsite(business.website);
-          business.emails = e.emails;
-          business.whatsapp = e.whatsapp;
-          business.sitePhones = e.sitePhones;
+      // Wait for the results feed. If a single result loaded straight to a place
+      // panel, fall back to scraping just that one.
+      const hasFeed = await page
+        .locator('div[role="feed"]')
+        .waitFor({ timeout: 20000 })
+        .then(() => true)
+        .catch(() => false);
+
+      const placeUrls = hasFeed
+        ? await collectPlaceLinks(page, limit, onStatus)
+        : [page.url()];
+
+      onStatus(`Opening ${placeUrls.length} "${niche}" listings…`);
+
+      for (const url of placeUrls) {
+        if (signal?.aborted) break;
+        const id = placeIdFromUrl(url);
+        if (seenIds.has(id)) continue;
+        try {
+          await page.goto(url, { waitUntil: "domcontentloaded", timeout: 30000 });
+          const detail = await extractDetail(page);
+          if (!detail.name) continue;
+          seenIds.add(id);
+
+          const business: Business = {
+            id,
+            mapsUrl: url,
+            niche,
+            ...detail,
+            emails: [],
+            whatsapp: [],
+            sitePhones: [],
+          };
+
+          if (enrich && business.website) {
+            onStatus(`Enriching ${business.name}…`);
+            const e = await enrichFromWebsite(business.website);
+            business.emails = e.emails;
+            business.whatsapp = e.whatsapp;
+            business.sitePhones = e.sitePhones;
+          }
+
+          count += 1;
+          await onBusiness(business);
+          // Be polite — small delay between listings.
+          await sleep(400);
+        } catch {
+          // Skip a single bad listing without killing the whole run.
+          continue;
         }
-
-        count += 1;
-        await onBusiness(business);
-        // Be polite — small delay between listings.
-        await sleep(400);
-      } catch {
-        // Skip a single bad listing without killing the whole run.
-        continue;
       }
     }
 

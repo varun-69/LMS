@@ -15,13 +15,21 @@ export async function POST(req: NextRequest) {
     return new Response("Invalid JSON body", { status: 400 });
   }
 
-  const niche = String(body?.niche || "").trim();
+  // Accept either a comma-separated `niche` string or a `niches` array.
+  const rawNiches = Array.isArray(body?.niches)
+    ? body.niches.join(",")
+    : String(body?.niche || "");
+  const niches = rawNiches
+    .split(",")
+    .map((n: string) => n.trim())
+    .filter(Boolean)
+    .slice(0, 10);
   const location = String(body?.location || "").trim();
   const limit = Math.min(Math.max(parseInt(body?.limit, 10) || 30, 1), 200);
   const enrich = body?.enrich !== false;
 
-  if (!niche || !location) {
-    return new Response("Both 'niche' and 'location' are required", { status: 400 });
+  if (niches.length === 0 || !location) {
+    return new Response("At least one niche and a location are required", { status: 400 });
   }
 
   const encoder = new TextEncoder();
@@ -37,7 +45,7 @@ export async function POST(req: NextRequest) {
 
       try {
         const count = await scrapeGoogleMaps(
-          { niche, location, limit, enrich },
+          { niches, location, limit, enrich },
           (b) => send({ type: "lead", data: b }),
           (message) => send({ type: "status", message }),
           req.signal,

@@ -5,6 +5,7 @@ import type { Business } from "./types";
 function toRow(b: Business) {
   return {
     Name: b.name,
+    Niche: b.niche,
     Category: b.category,
     Rating: b.rating,
     Reviews: b.reviews,
@@ -21,7 +22,7 @@ function toRow(b: Business) {
 export function exportToExcel(leads: Business[], filename = "leads.xlsx") {
   const ws = XLSX.utils.json_to_sheet(leads.map(toRow));
   ws["!cols"] = [
-    { wch: 28 }, { wch: 18 }, { wch: 7 }, { wch: 8 }, { wch: 16 },
+    { wch: 28 }, { wch: 16 }, { wch: 18 }, { wch: 7 }, { wch: 8 }, { wch: 16 },
     { wch: 16 }, { wch: 28 }, { wch: 18 }, { wch: 30 }, { wch: 40 }, { wch: 40 },
   ];
   const wb = XLSX.utils.book_new();
