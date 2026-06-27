@@ -37,16 +37,17 @@ export type StreamEvent =
   | { type: "done"; count: number }
   | { type: "error"; message: string };
 
-/** A buying-intent post found on Reddit (the only free, no-login source). */
+/** A buying-intent post found on one of the free, read-only sources. */
 export interface IntentPost {
   id: string;
-  source: "reddit";
+  /** "reddit" | "hackernews" | "web" | "exa" */
+  source: string;
   title: string;
   snippet: string;
   author: string;
-  channel: string; // subreddit, e.g. r/smallbusiness
+  channel: string; // subreddit / domain / "Hacker News"
   url: string;
-  createdUtc: number; // epoch seconds
+  createdUtc: number; // epoch seconds (0 if unknown)
 }
 
 /** A one-click search link that opens a platform's own search, pre-filtered. */

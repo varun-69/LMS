@@ -17,7 +17,7 @@ No paid scraping APIs. Runs on your machine via a headless Chromium. The only op
 - **Filters** — No-website / Has-website, minimum rating, has-email, has-WhatsApp. No-website businesses are kept and badged (often your best prospects for web/marketing work).
 - **Per-lead data** — name, category, rating + reviews, phone, website, address, emails, WhatsApp numbers.
 - **Resilient enrichment** — when a business site is JS-heavy or blocks plain scrapers, it falls back to **Jina Reader** (`r.jina.ai`, free, no key) to still pull emails & WhatsApp. (Inspired by the [agent-reach](https://github.com/Panniantong/agent-reach) toolkit.)
-- **Intent Radar** — Reddit posts from the last 24h / 7d / 30d where people ask for/recommend your service, plus pre-filtered search links to platforms that can’t be scraped for free.
+- **Intent Radar** — buying-intent posts from the last 24h / 7d / 30d, aggregated across **Reddit + Hacker News + a web-wide search (Jina)**, with **Exa** semantic results too if you add a key. Each result is source-tagged. Plus one-click pre-filtered search links for platforms that can’t be read for free (LinkedIn, X, Instagram, Threads, Naukri, Google, Facebook).
 - **AI outreach (Claude)** — personalized email/WhatsApp/DM drafts, editable, with your booking link woven in. **You send them yourself.**
 - **Exports** — `.xlsx` spreadsheet and `.vcf` contacts (import into your phone → reachable in WhatsApp). Each row also has a `wa.me` chat button.
 
