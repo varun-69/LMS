@@ -1,6 +1,8 @@
 import * as cheerio from "cheerio";
 
 const EMAIL_RE = /[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}/g;
+// wa.me/<digits> or api.whatsapp.com/send?phone=<digits> anywhere in text/markdown.
+const WA_RE = /(?:wa\.me\/|whatsapp\.com\/send\?phone=|whatsapp\.com\/)(\+?\d[\d\s\-]{6,}\d)/gi;
 
 // Junk that turns up when regex-matching emails out of raw HTML/JS.
 const EMAIL_BLOCKLIST = [
@@ -62,6 +64,45 @@ function normalizeBase(website: string): string | null {
   }
 }
 
+/** Run email + WhatsApp regexes over any blob of text (HTML or markdown). */
+function harvestFromText(
+  text: string,
+  emails: Set<string>,
+  whatsapp: Set<string>,
+): void {
+  for (const m of text.match(EMAIL_RE) || []) {
+    if (!isJunkEmail(m)) emails.add(m.toLowerCase());
+  }
+  let wa: RegExpExecArray | null;
+  WA_RE.lastIndex = 0;
+  while ((wa = WA_RE.exec(text)) !== null) {
+    const num = wa[1].replace(/\D/g, "");
+    if (num.length >= 7) whatsapp.add(num);
+  }
+}
+
+/**
+ * Read a page through Jina Reader (r.jina.ai) — a free, no-key service that
+ * returns clean text even for JS-rendered / bot-protected sites that a plain
+ * fetch can't see. Inspired by the agent-reach toolkit. Never throws.
+ * Set JINA_API_KEY for higher rate limits (optional).
+ */
+async function fetchViaJina(url: string, timeoutMs: number): Promise<string | null> {
+  const controller = new AbortController();
+  const t = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const headers: Record<string, string> = { Accept: "text/plain" };
+    if (process.env.JINA_API_KEY) headers.Authorization = `Bearer ${process.env.JINA_API_KEY}`;
+    const res = await fetch(`https://r.jina.ai/${url}`, { signal: controller.signal, headers });
+    if (!res.ok) return null;
+    return await res.text();
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(t);
+  }
+}
+
 async function fetchText(url: string, timeoutMs: number): Promise<string | null> {
   const controller = new AbortController();
   const t = setTimeout(() => controller.abort(), timeoutMs);
@@ -115,42 +156,46 @@ export async function enrichFromWebsite(website: string): Promise<EnrichResult> 
 
   for (const url of candidates) {
     const html = await fetchText(url, 7000);
-    if (!html) continue;
+    if (html) {
+      try {
+        const $ = cheerio.load(html);
 
-    let $: cheerio.CheerioAPI;
-    try {
-      $ = cheerio.load(html);
-    } catch {
-      continue;
-    }
+        // mailto: links — the most reliable email source.
+        $('a[href^="mailto:"]').each((_, el) => {
+          const raw = ($(el).attr("href") || "").replace(/^mailto:/i, "").split("?")[0].trim();
+          if (raw && !isJunkEmail(raw)) emails.add(raw.toLowerCase());
+        });
 
-    // mailto: links — the most reliable email source.
-    $('a[href^="mailto:"]').each((_, el) => {
-      const raw = ($(el).attr("href") || "").replace(/^mailto:/i, "").split("?")[0].trim();
-      if (raw && !isJunkEmail(raw)) emails.add(raw.toLowerCase());
-    });
+        // tel: links.
+        $('a[href^="tel:"]').each((_, el) => {
+          const raw = ($(el).attr("href") || "").replace(/^tel:/i, "").trim();
+          const cleaned = raw.replace(/[^\d+]/g, "");
+          if (cleaned.replace(/\D/g, "").length >= 7) sitePhones.add(cleaned);
+        });
 
-    // tel: links.
-    $('a[href^="tel:"]').each((_, el) => {
-      const raw = ($(el).attr("href") || "").replace(/^tel:/i, "").trim();
-      const cleaned = raw.replace(/[^\d+]/g, "");
-      if (cleaned.replace(/\D/g, "").length >= 7) sitePhones.add(cleaned);
-    });
-
-    // WhatsApp click-to-chat links.
-    $('a[href*="wa.me"], a[href*="whatsapp.com"]').each((_, el) => {
-      const num = whatsappFromHref($(el).attr("href") || "");
-      if (num) whatsapp.add(num);
-    });
-
-    // Fallback: regex emails out of the raw HTML.
-    const matches = html.match(EMAIL_RE) || [];
-    for (const m of matches) {
-      if (!isJunkEmail(m)) emails.add(m.toLowerCase());
+        // WhatsApp click-to-chat links.
+        $('a[href*="wa.me"], a[href*="whatsapp.com"]').each((_, el) => {
+          const num = whatsappFromHref($(el).attr("href") || "");
+          if (num) whatsapp.add(num);
+        });
+      } catch {
+        /* malformed html — fall through to regex harvest */
+      }
+      harvestFromText(html, emails, whatsapp);
+    } else {
+      // Plain fetch saw nothing (JS-rendered / bot-protected). Try Jina Reader.
+      const text = await fetchViaJina(url, 9000);
+      if (text) harvestFromText(text, emails, whatsapp);
     }
 
     // Once we have a solid email + whatsapp, stop crawling more pages.
     if (emails.size > 0 && whatsapp.size > 0) break;
+  }
+
+  // Last resort: if we still have no email, read the homepage via Jina Reader.
+  if (emails.size === 0) {
+    const text = await fetchViaJina(base, 9000);
+    if (text) harvestFromText(text, emails, whatsapp);
   }
 
   return {
